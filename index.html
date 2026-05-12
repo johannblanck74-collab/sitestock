@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SiteStock — Gestion de Matériel</title>
+<style>
+  :root {
+    --bg: #f5efe4;
+    --bg-alt: #ede5d4;
+    --card: #fbf7ee;
+    --border: #c9b896;
+    --border-soft: #d9cbae;
+    --text: #2a2520;
+    --text-soft: #6b5f50;
+    --accent: #b8541a;
+    --accent-dark: #8f3e10;
+    --accent-soft: #e8d4c2;
+    --ok: #3d6b3d;
+    --ok-bg: #d9e6d0;
+    --depot: #8b6f47;
+    --depot-bg: #e8dcc5;
+    --danger: #9a2c1f;
+    --shadow: 0 2px 8px rgba(70, 50, 30, 0.08);
+    --shadow-hover: 0 4px 16px rgba(70, 50, 30, 0.15);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+  header {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 28px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+  h1::before { content: ""; width: 8px; height: 32px; background: var(--accent); border-radius: 2px; }
+  .stats { display: flex; gap: 24px; font-size: 0.9rem; color: var(--text-soft); flex-wrap: wrap; }
+  .stat-val { font-weight: 700; color: var(--text); font-size: 1.1rem; }
+  .stat-alert { color: #d14a1a; }
+  .user-bar { font-size: 0.85rem; color: var(--text-soft); display: flex; align-items: center; gap: 10px; }
+  .user-bar strong { color: var(--text); }
+  .sync-status { font-size: 0.78rem; padding: 3px 8px; border-radius: 10px; background: var(--ok-bg); color: var(--ok); font-weight: 600; }
+  .sync-status.syncing { background: #fff3cd; color: #856404; }
+  .sync-status.error { background: #f8d7da; color: #721c24; }
+  .btn {
+    background: var(--accent); color: white; border: none;
+    padding: 10px 20px; border-radius: 6px;
+    font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn:hover { background: var(--accent-dark); transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg-alt); border-color: var(--text-soft); transform: none; }
+  .btn-danger { background: var(--danger); }
+  .btn-danger:hover { background: #7a1f15; }
+  .btn-small { padding: 6px 12px; font-size: 0.85rem; }
+
+  .top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .filters {
+    background: var(--card); border: 1.5px solid var(--border-soft);
+    border-radius: 8px; padding: 18px; margin-bottom: 20px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px; box-shadow: var(--shadow);
+  }
+  .filter-group label {
+    display: block; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-soft);
+    margin-bottom: 4px; font-weight: 600;
+  }
+  input, select, textarea {
+    width: 100%; padding: 9px 12px;
+    border: 1.5px solid var(--border-soft); border-radius: 5px;
+    background: var(--bg); font-family: inherit; font-size: 0.95rem;
+    color: var(--text); transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent); background: white;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--card); border: 1.5px solid var(--border-soft);
+    border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);
+    transition: all 0.2s; display: flex; flex-direction: column;
+    position: relative;
+  }
+  .card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+  .card-img { height: 180px; background: var(--bg-alt); position: relative; overflow: hidden; cursor: pointer; }
+  .card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .card-img-empty {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--text-soft); font-size: 0.85rem;
+    background: repeating-linear-gradient(45deg, var(--bg-alt), var(--bg-alt) 10px, var(--bg) 10px, var(--bg) 20px);
+  }
+  .img-count {
+    position: absolute; bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.7); color: white;
+    padding: 3px 8px; border-radius: 12px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .alert-bell {
+    position: absolute; top: 8px; left: 8px;
+    background: #d14a1a; color: white;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    animation: pulse 2s infinite; cursor: help; z-index: 2;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 2px 6px rgba(209, 74, 26, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 2px 12px rgba(209, 74, 26, 0.7); }
+  }
+  .card-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .card-title {
+    font-size: 1.05rem; font-weight: 700; color: var(--accent);
+    font-family: 'Courier New', monospace; letter-spacing: 0.02em;
+  }
+  .card-row { display: flex; gap: 6px; font-size: 0.85rem; color: var(--text-soft); }
+  .card-row strong { color: var(--text); font-weight: 600; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .badge-chantier { background: var(--ok-bg); color: var(--ok); }
+  .badge-depot { background: var(--depot-bg); color: var(--depot); }
+  .card-actions {
+    display: flex; gap: 6px; padding: 10px 14px;
+    border-top: 1px solid var(--border-soft); background: var(--bg-alt);
+  }
+  .card-actions .btn { flex: 1; }
+
+  .empty {
+    text-align: center; padding: 60px 20px;
+    color: var(--text-soft); background: var(--card);
+    border: 1.5px dashed var(--border); border-radius: 8px;
+  }
+
+  /* Modals */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(40, 30, 20, 0.6);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 10px;
+    max-width: 700px; width: 100%;
+    max-height: 90vh; overflow-y: auto;
+    border: 2px solid var(--border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+  .modal-header {
+    padding: 20px 24px; border-bottom: 1.5px solid var(--border-soft);
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg-alt);
+  }
+  .modal-header h2 { font-size: 1.3rem; }
+  .modal-close { background: none; border: none; font-size: 1.6rem; cursor: pointer; color: var(--text-soft); line-height: 1; }
+  .modal-body { padding: 24px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block; font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 5px; color: var(--text);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  .img-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; margin-top: 10px; }
+  .img-thumb { position: relative; aspect-ratio: 1; border-radius: 5px; overflow: hidden; border: 1.5px solid var(--border-soft); }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .img-remove {
+    position: absolute; top: 4px; right: 4px;
+    background: var(--danger); color: white;
+    border: none; border-radius: 50%;
+    width: 22px; height: 22px; cursor: pointer;
+    font-size: 0.9rem; line-height: 1; font-weight: bold;
+  }
+  .modal-footer {
+    padding: 16px 24px; border-top: 1.5px solid var(--border-soft);
+    display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-alt);
+  }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 24px; margin-top: 8px; }
+  .timeline::before {
+    content: ""; position: absolute;
+    left: 7px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--border);
+  }
+  .tl-entry { position: relative; padding-bottom: 16px; }
+  .tl-entry:last-child { padding-bottom: 0; }
+  .tl-entry::before {
+    content: ""; position: absolute;
+    left: -21px; top: 5px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--accent);
+    border: 2px solid var(--card);
+    box-shadow: 0 0 0 1.5px var(--border);
+  }
+  .tl-entry.tl-chantier::before { background: var(--ok); }
+  .tl-entry.tl-depot::before { background: var(--depot); }
+  .tl-date { font-size: 0.8rem; color: var(--text-soft); font-weight: 600; }
+  .tl-action { font-size: 0.95rem; margin-top: 2px; }
+  .tl-note { font-size: 0.85rem; color: var(--text-soft); margin-top: 3px; font-style: italic; }
+  .tl-user { font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-top: 2px; }
+  .tl-empty { color: var(--text-soft); font-style: italic; padding: 8px 0; }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200; padding: 40px; flex-direction: column; gap: 16px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 6px; }
+  .lightbox-nav { display: flex; gap: 12px; align-items: center; color: white; }
+  .lightbox-nav button {
+    background: rgba(255,255,255,0.15); color: white;
+    border: none; padding: 10px 18px; border-radius: 5px;
+    cursor: pointer; font-family: inherit; font-weight: 600;
+  }
+  .lightbox-nav button:hover { background: rgba(255,255,255,0.25); }
+  .lightbox-close {
+    position: absolute; top: 20px; right: 20px;
+    background: none; border: none; color: white;
+    font-size: 2rem; cursor: pointer;
+  }
+
+  .file-input-wrap {
+    border: 2px dashed var(--border); border-radius: 6px;
+    padding: 20px; text-align: center; background: var(--bg-alt);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .file-input-wrap:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .file-input-wrap input { display: none; }
+
+  .loading { display: flex; align-items: center; justify-content: center; padding: 40px; color: var(--text-soft); }
+
+  /* Login screen */
+  .login-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 500; padding: 20px;
+  }
+  .login-box {
+    background: var(--card); border: 2px solid var(--border);
+    border-radius: 10px; padding: 32px; max-width: 420px; width: 100%;
+    box-shadow: 0 10px 40px rgba(70, 50, 30, 0.15);
+  }
+  .login-box h2 { margin-bottom: 6px; font-size: 1.4rem; }
+  .login-box .sub { color: var(--text-soft); margin-bottom: 20px; font-size: 0.9rem; }
+  .login-box .form-group { margin-bottom: 16px; }
+  .login-err { color: var(--danger); font-size: 0.85rem; margin-top: 8px; min-height: 1em; }
+
+  @media (max-width: 600px) {
+    .form-row { grid-template-columns: 1fr; }
+    header { flex-direction: column; align-items: flex-start; }
+    .stats { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <h2 id="loginTitle">SiteStock</h2>
+    <div class="sub">Identifiez-vous pour accéder à l'outil partagé.</div>
+    <div class="form-group">
+      <label>Votre nom (identification dans l'historique)</label>
+      <input type="text" id="loginName" placeholder="Prénom Nom" autocomplete="name">
+    </div>
+    <div class="form-group">
+      <label>Mot de passe d'accès</label>
+      <input type="password" id="loginPwd" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="btn" style="width: 100%;" onclick="doLogin()">Accéder</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="container" id="app" style="display: none;">
+  <header>
+    <div>
+      <h1 id="appTitle">Gestion du Matériel</h1>
+      <div class="stats" style="margin-top: 8px;">
+        <div>Total : <span class="stat-val" id="statTotal">0</span></div>
+        <div>Sur chantier : <span class="stat-val" id="statChantier">0</span></div>
+        <div>Au dépôt : <span class="stat-val" id="statDepot">0</span></div>
+        <div>⚠ Dépôt &gt; 3 mois : <span class="stat-val stat-alert" id="statAlert">0</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="user-bar" style="margin-bottom: 10px; justify-content: flex-end;">
+        <span>Connecté : <strong id="currentUser">—</strong></span>
+        <span class="sync-status" id="syncStatus">Synchronisé</span>
+        <button class="btn btn-secondary btn-small" onclick="doLogout()">Déconnexion</button>
+      </div>
+      <div class="top-actions">
+        <button class="btn btn-secondary btn-small" onclick="loadAll(true)">🔄 Rafraîchir</button>
+        <button class="btn btn-secondary btn-small admin-only" id="btnJournal" onclick="openAuditLog()" style="display:none;">📜 Journal</button>
+        <button class="btn btn-secondary btn-small admin-only" id="btnExport" onclick="exportJson()" style="display:none;">💾 Export</button>
+        <button class="btn admin-only" id="btnCreate" onclick="openForm()" style="display:none;">+ Nouveau</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label>Recherche N° IT</label>
+      <input type="text" id="filterIT" placeholder="IT-2026-..." oninput="render()">
+    </div>
+    <div class="filter-group">
+      <label>Chantier</label>
+      <select id="filterChantier" onchange="render()"><option value="">Tous</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Conducteur de travaux</label>
+      <select id="filterConducteur" onchange="render()"><option value="">Tous</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Localisation</label>
+      <select id="filterLoc" onchange="render()">
+        <option value="">Toutes</option>
+        <option value="chantier">Sur chantier</option>
+        <option value="depot">Au dépôt</option>
+        <option value="alert">⚠ Dépôt &gt; 3 mois</option>
+      </select>
+    </div>
+    <div class="filter-group" style="display: flex; align-items: flex-end;">
+      <button class="btn btn-secondary" style="width: 100%;" onclick="resetFilters()">Réinitialiser</button>
+    </div>
+  </div>
+
+  <div id="list" class="grid"></div>
+</div>
+
+<!-- Form Modal -->
+<div class="modal-bg" id="formModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="formTitle">Nouvel interstock</h2>
+      <button class="modal-close" onclick="closeForm()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>N° IT *</label><input type="text" id="fNumero" placeholder="IT-2026-001"></div>
+        <div class="form-group"><label>Date de création</label><input type="date" id="fDate"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Chantier *</label>
+          <input type="text" id="fChantier" list="chantierList" placeholder="Ex: Route Luidefour">
+          <datalist id="chantierList"></datalist>
+        </div>
+        <div class="form-group">
+          <label>Conducteur de travaux *</label>
+          <input type="text" id="fConducteur" list="conducteurList" placeholder="Nom du conducteur">
+          <datalist id="conducteurList"></datalist>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Localisation *</label>
+        <select id="fLocation">
+          <option value="depot">Au dépôt</option>
+          <option value="chantier">Sur chantier</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Description / Notes</label><textarea id="fNotes" placeholder="Contenu de l'interstock, remarques..."></textarea></div>
+      <div class="form-group">
+        <label>Photos</label>
+        <label class="file-input-wrap">
+          <input type="file" id="fImages" accept="image/*" multiple onchange="handleImageUpload(event)">
+          <div>📷 Cliquez pour ajouter des photos</div>
+          <div style="font-size: 0.8rem; color: var(--text-soft); margin-top: 4px;">Les images sont compressées automatiquement</div>
+        </label>
+        <div class="img-preview" id="imgPreview"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeForm()">Annuler</button>
+      <button class="btn" id="saveBtn" onclick="saveIT()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-bg" id="histModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="histTitle">Historique</h2>
+      <button class="modal-close" onclick="closeHist()">×</button>
+    </div>
+    <div class="modal-body" id="histBody"></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeHist()">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Move Modal -->
+<div class="modal-bg" id="moveModal">
+  <div class="modal" style="max-width: 460px;">
+    <div class="modal-header">
+      <h2 id="moveTitle">Déplacer</h2>
+      <button class="modal-close" onclick="closeMove()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="moveInfo" style="margin-bottom: 14px; padding: 12px; background: var(--bg-alt); border-radius: 5px; font-size: 0.9rem;"></div>
+      <div class="form-group"><label>Date du déplacement</label><input type="date" id="moveDate"></div>
+      <div class="form-group"><label>Note (optionnelle)</label><textarea id="moveNote" placeholder="Raison, transporteur, remarque..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeMove()">Annuler</button>
+      <button class="btn" onclick="confirmMove()">Confirmer le déplacement</button>
+    </div>
+  </div>
+</div>
+
+<!-- Audit Modal -->
+<div class="modal-bg" id="auditModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Journal des modifications</h2>
+      <button class="modal-close" onclick="closeAudit()">×</button>
+    </div>
+    <div class="modal-body" id="auditBody"><div class="loading">Chargement…</div></div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="closeAudit()">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightboxImg" src="">
+  <div class="lightbox-nav">
+    <button onclick="lightboxNav(-1)">← Précédent</button>
+    <span id="lightboxCount"></span>
+    <button onclick="lightboxNav(1)">Suivant →</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════
+// ⚙️  CONFIGURATION — À personnaliser
+// ═══════════════════════════════
+const CONFIG = {
+  appName:     'Gestion du Matériel',  // Nom affiché dans l'en-tête
+  companyName: 'Votre Entreprise',     // Nom de votre entreprise
+  itemLabel:   'matériel',             // Ex: 'interstock', 'équipement', 'matériel'
+  itemLabelPlural: 'matériels',        // Pluriel
+  site1Label:  'Sur chantier',         // Libellé localisation 1
+  site2Label:  'Au dépôt',             // Libellé localisation 2
+  numberPrefix: 'IT-',                 // Préfixe des numéros (ex: 'MAT-', 'EQ-')
+};
+
+// Appliquer la config
+document.title = CONFIG.appName + ' — ' + CONFIG.companyName;
+document.getElementById('appTitle').textContent = CONFIG.appName;
+document.getElementById('loginTitle').textContent = CONFIG.appName;
+document.getElementById('btnCreate').textContent = '+ Nouveau ' + CONFIG.itemLabel;
+
+// ========= State =========
+let items = [];
+let lastServerUpdate = null;
+let currentUser = "";
+let appPassword = "";
+let isAdmin = false;
+let currentEditId = null;
+let currentImages = [];
+let lightboxImages = [];
+let lightboxIdx = 0;
+let moveTargetId = null;
+
+// ========= API =========
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { "Content-Type": "application/json", "X-App-Password": appPassword }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (res.status === 401) {
+    alert("Session invalide. Reconnectez-vous.");
+    doLogout();
+    throw new Error("unauthorized");
+  }
+  if (!res.ok) throw new Error("API error " + res.status);
+  return res.json();
+}
+
+function setSyncStatus(status, text) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status ' + status;
+  el.textContent = text;
+}
+
+// ========= Login =========
+async function doLogin() {
+  const name = document.getElementById('loginName').value.trim();
+  const pwd = document.getElementById('loginPwd').value;
+  const err = document.getElementById('loginErr');
+  err.textContent = "";
+  if (!name) { err.textContent = "Veuillez saisir votre nom."; return; }
+  appPassword = pwd;
+  // test with a GET
+  try {
+    const res = await fetch('/api/data', { headers: { "X-App-Password": pwd } });
+    if (res.status === 401) { err.textContent = "Mot de passe incorrect."; appPassword = ""; return; }
+    if (!res.ok) { err.textContent = "Erreur serveur (" + res.status + ")"; return; }
+    currentUser = name;
+    sessionStorage.setItem('it_user', name);
+    sessionStorage.setItem('it_pwd', pwd);
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('currentUser').textContent = currentUser;
+    await loadAll();
+  } catch (e) {
+    err.textContent = "Connexion impossible. Vérifiez votre réseau.";
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('it_user');
+  sessionStorage.removeItem('it_pwd');
+  location.reload();
+}
+
+// Auto-login if session present
+(function tryAutoLogin() {
+  const savedUser = sessionStorage.getItem('it_user');
+  const savedPwd = sessionStorage.getItem('it_pwd');
+  if (savedUser && savedPwd !== null) {
+    currentUser = savedUser;
+    appPassword = savedPwd;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('currentUser').textContent = currentUser;
+    loadAll();
+  }
+})();
+
+// ========= Load/Save =========
+async function loadAll(manual = false) {
+  setSyncStatus('syncing', 'Synchronisation...');
+  try {
+    const data = await api('GET', '/api/data');
+    items = (data.items || []).sort((a, b) => (b.dateCreation || '').localeCompare(a.dateCreation || ''));
+    // Migration: ensure history exists
+    for (const it of items) {
+      if (!it.history) {
+        it.history = [{ date: it.dateCreation, from: null, to: it.location, note: 'Création (reconstituée)', user: 'système' }];
+      }
+    }
+    lastServerUpdate = data.updated;
+    isAdmin = !!data.isAdmin;
+    applyAdminUi();
+    setSyncStatus('', 'Synchronisé' + (data.updated ? ' · ' + new Date(data.updated).toLocaleTimeString('fr-FR') : ''));
+    render();
+  } catch (e) {
+    console.error(e);
+    setSyncStatus('error', 'Erreur sync');
+  }
+}
+
+function applyAdminUi() {
+  const display = isAdmin ? '' : 'none';
+  document.querySelectorAll('.admin-only').forEach(el => el.style.display = display);
+  const userEl = document.getElementById('currentUser');
+  if (userEl) {
+    userEl.innerHTML = escapeHtml(currentUser) + (isAdmin ? ' <span style="background: var(--accent); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-left: 4px;">ADMIN</span>' : '');
+  }
+}
+
+async function pushAll(action, detail) {
+  setSyncStatus('syncing', 'Enregistrement...');
+  try {
+    const res = await api('POST', '/api/data', {
+      items, user: currentUser, action, detail
+    });
+    lastServerUpdate = res.updated;
+    setSyncStatus('', 'Synchronisé · ' + new Date(res.updated).toLocaleTimeString('fr-FR'));
+  } catch (e) {
+    setSyncStatus('error', 'Erreur sauvegarde');
+    alert("La sauvegarde a échoué. Vos modifications locales ne sont peut-être pas enregistrées côté serveur. Réessayez.");
+    throw e;
+  }
+}
+
+// ========= Image handling =========
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1200;
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = h * maxDim / w; w = maxDim; }
+          else { w = w * maxDim / h; h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageUpload(ev) {
+  const files = Array.from(ev.target.files);
+  for (const f of files) {
+    try { currentImages.push(await compressImage(f)); } catch (e) { console.error(e); }
+  }
+  ev.target.value = '';
+  renderImgPreview();
+}
+function renderImgPreview() {
+  document.getElementById('imgPreview').innerHTML = currentImages.map((img, i) =>
+    `<div class="img-thumb"><img src="${img}"><button class="img-remove" onclick="removeImg(${i})">×</button></div>`
+  ).join('');
+}
+function removeImg(i) { currentImages.splice(i, 1); renderImgPreview(); }
+
+// ========= Form =========
+function openForm(id = null) {
+  currentEditId = id;
+  currentImages = [];
+  if (id) {
+    const it = items.find(x => x.id === id);
+    document.getElementById('formTitle').textContent = 'Modifier ' + it.numero;
+    document.getElementById('fNumero').value = it.numero;
+    document.getElementById('fDate').value = it.dateCreation;
+    document.getElementById('fChantier').value = it.chantier;
+    document.getElementById('fConducteur').value = it.conducteur;
+    document.getElementById('fLocation').value = it.location;
+    document.getElementById('fNotes').value = it.notes || '';
+    currentImages = [...(it.images || [])];
+  } else {
+    document.getElementById('formTitle').textContent = 'Nouvel interstock';
+    document.getElementById('fNumero').value = '';
+    document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('fChantier').value = '';
+    document.getElementById('fConducteur').value = '';
+    document.getElementById('fLocation').value = 'depot';
+    document.getElementById('fNotes').value = '';
+  }
+  renderImgPreview();
+  document.getElementById('formModal').classList.add('open');
+}
+function closeForm() { document.getElementById('formModal').classList.remove('open'); }
+
+async function saveIT() {
+  const numero = document.getElementById('fNumero').value.trim();
+  const chantier = document.getElementById('fChantier').value.trim();
+  const conducteur = document.getElementById('fConducteur').value.trim();
+  if (!numero || !chantier || !conducteur) { alert('Champs N° IT, Chantier et Conducteur obligatoires.'); return; }
+
+  const location = document.getElementById('fLocation').value;
+  const dateCreation = document.getElementById('fDate').value || new Date().toISOString().slice(0, 10);
+  const btn = document.getElementById('saveBtn'); btn.disabled = true;
+
+  let history, action;
+  if (currentEditId) {
+    const existing = items.find(x => x.id === currentEditId);
+    history = existing.history || [];
+    if (existing.location !== location) {
+      history.push({ date: new Date().toISOString().slice(0, 10), from: existing.location, to: location, note: '(modifié via édition)', user: currentUser });
+    }
+    action = 'edit';
+  } else {
+    history = [{ date: dateCreation, from: null, to: location, note: 'Création', user: currentUser }];
+    action = 'create';
+  }
+
+  const data = {
+    id: currentEditId || ('it_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+    numero, chantier, conducteur, dateCreation, location,
+    notes: document.getElementById('fNotes').value.trim(),
+    images: currentImages, history,
+    updated: Date.now(), updatedBy: currentUser
+  };
+
+  if (currentEditId) {
+    const idx = items.findIndex(x => x.id === currentEditId);
+    items[idx] = data;
+  } else {
+    items.unshift(data);
+  }
+  items.sort((a, b) => (b.dateCreation || '').localeCompare(a.dateCreation || ''));
+
+  try {
+    await pushAll(action, { numero: data.numero });
+    closeForm();
+    render();
+  } catch (e) {
+    // rollback attempt
+    await loadAll();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function removeIT(id) {
+  const it = items.find(x => x.id === id);
+  if (!confirm(`Supprimer l'interstock ${it.numero} ? Cette action est irréversible.`)) return;
+  items = items.filter(x => x.id !== id);
+  try {
+    await pushAll('delete', { numero: it.numero });
+    render();
+  } catch (e) { await loadAll(); }
+}
+
+// ========= Move =========
+function openMove(id) {
+  moveTargetId = id;
+  const it = items.find(x => x.id === id);
+  const newLoc = it.location === 'chantier' ? 'depot' : 'chantier';
+  const labelFrom = it.location === 'chantier' ? 'Sur chantier' : 'Au dépôt';
+  const labelTo = newLoc === 'chantier' ? 'Sur chantier' : 'Au dépôt';
+  document.getElementById('moveTitle').textContent = `Déplacer ${it.numero}`;
+  document.getElementById('moveInfo').innerHTML =
+    `<strong>${escapeHtml(it.numero)}</strong> — ${escapeHtml(it.chantier)}<br>
+     <span style="color: var(--text-soft);">${labelFrom} → <strong style="color: var(--accent);">${labelTo}</strong></span>`;
+  document.getElementById('moveDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('moveNote').value = '';
+  document.getElementById('moveModal').classList.add('open');
+}
+function closeMove() { document.getElementById('moveModal').classList.remove('open'); moveTargetId = null; }
+
+async function confirmMove() {
+  const it = items.find(x => x.id === moveTargetId);
+  if (!it) return;
+  const newLoc = it.location === 'chantier' ? 'depot' : 'chantier';
+  const date = document.getElementById('moveDate').value || new Date().toISOString().slice(0, 10);
+  const note = document.getElementById('moveNote').value.trim();
+  it.history = it.history || [];
+  it.history.push({ date, from: it.location, to: newLoc, note: note || null, user: currentUser });
+  it.location = newLoc;
+  it.updated = Date.now();
+  it.updatedBy = currentUser;
+  try {
+    await pushAll('move', { numero: it.numero, from: it.history[it.history.length-1].from, to: newLoc });
+    closeMove();
+    render();
+  } catch (e) { await loadAll(); }
+}
+
+// ========= History =========
+function openHist(id) {
+  const it = items.find(x => x.id === id);
+  document.getElementById('histTitle').textContent = `Historique — ${it.numero}`;
+  const hist = (it.history || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const body = document.getElementById('histBody');
+  const summary = `
+    <div style="padding: 12px; background: var(--bg-alt); border-radius: 5px; margin-bottom: 16px; font-size: 0.9rem;">
+      <div><strong>Chantier :</strong> ${escapeHtml(it.chantier)}</div>
+      <div><strong>Conducteur :</strong> ${escapeHtml(it.conducteur)}</div>
+      <div><strong>Créé le :</strong> ${new Date(it.dateCreation).toLocaleDateString('fr-FR')}</div>
+      <div style="margin-top: 6px;">
+        <span class="badge ${it.location === 'chantier' ? 'badge-chantier' : 'badge-depot'}">
+          Actuellement : ${it.location === 'chantier' ? '🏗 Sur chantier' : '🏭 Au dépôt'}
+        </span>
+      </div>
+    </div>
+  `;
+  if (hist.length === 0) {
+    body.innerHTML = summary + `<div class="tl-empty">Aucun mouvement enregistré.</div>`;
+  } else {
+    const entries = hist.map(h => {
+      const dateFr = h.date ? new Date(h.date).toLocaleDateString('fr-FR') : '—';
+      let label;
+      if (h.from === null) {
+        label = `Création — ${h.to === 'chantier' ? 'sur chantier' : 'au dépôt'}`;
+      } else {
+        const fromL = h.from === 'chantier' ? 'Sur chantier' : 'Au dépôt';
+        const toL = h.to === 'chantier' ? 'Sur chantier' : 'Au dépôt';
+        label = `${fromL} → <strong>${toL}</strong>`;
+      }
+      return `
+        <div class="tl-entry tl-${h.to}">
+          <div class="tl-date">${dateFr}</div>
+          <div class="tl-action">${label}</div>
+          ${h.user ? `<div class="tl-user">par ${escapeHtml(h.user)}</div>` : ''}
+          ${h.note ? `<div class="tl-note">${escapeHtml(h.note)}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+    body.innerHTML = summary + `<h3 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin-bottom: 12px;">Mouvements (${hist.length})</h3><div class="timeline">${entries}</div>`;
+  }
+  document.getElementById('histModal').classList.add('open');
+}
+function closeHist() { document.getElementById('histModal').classList.remove('open'); }
+
+// ========= Audit =========
+async function openAuditLog() {
+  document.getElementById('auditModal').classList.add('open');
+  const body = document.getElementById('auditBody');
+  body.innerHTML = '<div class="loading">Chargement…</div>';
+  try {
+    const res = await fetch('/api/log', { headers: { "X-App-Password": appPassword } });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    const entries = (data.entries || []).slice().reverse();
+    if (entries.length === 0) {
+      body.innerHTML = '<div class="tl-empty">Aucune entrée.</div>';
+    } else {
+      body.innerHTML = `
+        <div style="font-size: 0.85rem; color: var(--text-soft); margin-bottom: 10px;">
+          ${entries.length} entrée${entries.length>1?'s':''} — chronologique inverse
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+          <thead><tr style="background: var(--bg-alt); text-align: left;">
+            <th style="padding: 8px;">Date</th><th style="padding: 8px;">Utilisateur</th>
+            <th style="padding: 8px;">Action</th><th style="padding: 8px;">Détail</th>
+          </tr></thead>
+          <tbody>
+            ${entries.map(e => `
+              <tr style="border-bottom: 1px solid var(--border-soft);">
+                <td style="padding: 8px;">${new Date(e.ts).toLocaleString('fr-FR')}</td>
+                <td style="padding: 8px;"><strong>${escapeHtml(e.user||'?')}</strong></td>
+                <td style="padding: 8px;">${escapeHtml(e.action||'')}</td>
+                <td style="padding: 8px; color: var(--text-soft);">${e.detail ? escapeHtml(JSON.stringify(e.detail)) : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch (e) {
+    body.innerHTML = '<div class="tl-empty">Erreur de chargement.</div>';
+  }
+}
+function closeAudit() { document.getElementById('auditModal').classList.remove('open'); }
+
+// ========= Export =========
+function exportJson() {
+  const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), items }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `interstocks-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+// ========= Lightbox =========
+function openLightbox(imgs, idx) {
+  lightboxImages = imgs; lightboxIdx = idx;
+  updateLightbox();
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function lightboxNav(d) {
+  lightboxIdx = (lightboxIdx + d + lightboxImages.length) % lightboxImages.length;
+  updateLightbox();
+}
+function updateLightbox() {
+  document.getElementById('lightboxImg').src = lightboxImages[lightboxIdx];
+  document.getElementById('lightboxCount').textContent = `${lightboxIdx + 1} / ${lightboxImages.length}`;
+}
+
+// ========= Helpers =========
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function escapeAttr(s) { return escapeHtml(s); }
+function depotDuration(it) {
+  if (it.location !== 'depot') return null;
+  const hist = it.history || [];
+  const depotEntries = hist.filter(h => h.to === 'depot').sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const sinceDate = depotEntries.length ? depotEntries[0].date : it.dateCreation;
+  if (!sinceDate) return null;
+  const d = new Date(sinceDate);
+  const now = new Date();
+  const days = Math.floor((now - d) / (1000 * 60 * 60 * 24));
+  return { date: sinceDate, days };
+}
+function isStale(it) { const d = depotDuration(it); return d && d.days > 90; }
+function formatDuration(days) {
+  if (days < 30) return `${days} jour${days > 1 ? 's' : ''}`;
+  const months = Math.floor(days / 30);
+  const remDays = days % 30;
+  if (months < 12) return `${months} mois${remDays > 0 ? ` et ${remDays}j` : ''}`;
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  return `${years} an${years > 1 ? 's' : ''}${remMonths > 0 ? ` et ${remMonths} mois` : ''}`;
+}
+
+function resetFilters() {
+  document.getElementById('filterIT').value = '';
+  document.getElementById('filterChantier').value = '';
+  document.getElementById('filterConducteur').value = '';
+  document.getElementById('filterLoc').value = '';
+  render();
+}
+
+function populateDatalists() {
+  const chantiers = [...new Set(items.map(i => i.chantier).filter(Boolean))].sort();
+  const conducteurs = [...new Set(items.map(i => i.conducteur).filter(Boolean))].sort();
+  const fc = document.getElementById('filterChantier');
+  const cur1 = fc.value;
+  fc.innerHTML = '<option value="">Tous</option>' + chantiers.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+  fc.value = cur1;
+  const fk = document.getElementById('filterConducteur');
+  const cur2 = fk.value;
+  fk.innerHTML = '<option value="">Tous</option>' + conducteurs.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+  fk.value = cur2;
+  document.getElementById('chantierList').innerHTML = chantiers.map(c => `<option value="${escapeAttr(c)}">`).join('');
+  document.getElementById('conducteurList').innerHTML = conducteurs.map(c => `<option value="${escapeAttr(c)}">`).join('');
+}
+
+function render() {
+  populateDatalists();
+  const fIT = document.getElementById('filterIT').value.toLowerCase().trim();
+  const fCh = document.getElementById('filterChantier').value;
+  const fCo = document.getElementById('filterConducteur').value;
+  const fLoc = document.getElementById('filterLoc').value;
+  const filtered = items.filter(it => {
+    if (fIT && !it.numero.toLowerCase().includes(fIT)) return false;
+    if (fCh && it.chantier !== fCh) return false;
+    if (fCo && it.conducteur !== fCo) return false;
+    if (fLoc === 'alert') { if (!isStale(it)) return false; }
+    else if (fLoc && it.location !== fLoc) return false;
+    return true;
+  });
+  document.getElementById('statTotal').textContent = items.length;
+  document.getElementById('statChantier').textContent = items.filter(i => i.location === 'chantier').length;
+  document.getElementById('statDepot').textContent = items.filter(i => i.location === 'depot').length;
+  document.getElementById('statAlert').textContent = items.filter(isStale).length;
+  const list = document.getElementById('list');
+  if (filtered.length === 0) {
+    const emptyMsg = items.length === 0
+      ? (isAdmin ? 'Aucun interstock. Cliquez sur « + Nouvel interstock ».' : 'Aucun interstock enregistré pour le moment.')
+      : 'Aucun résultat avec ces filtres.';
+    list.innerHTML = `<div class="empty" style="grid-column: 1/-1;">${emptyMsg}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(it => {
+    const imgs = it.images || [];
+    const firstImg = imgs[0];
+    const imgsJson = escapeAttr(JSON.stringify(imgs));
+    const dateFr = it.dateCreation ? new Date(it.dateCreation).toLocaleDateString('fr-FR') : '—';
+    const dep = depotDuration(it);
+    const stale = dep && dep.days > 90;
+    const bellHtml = stale
+      ? `<div class="alert-bell" title="Au dépôt depuis ${formatDuration(dep.days)} (depuis le ${new Date(dep.date).toLocaleDateString('fr-FR')})">🔔</div>` : '';
+    return `
+      <div class="card">
+        ${bellHtml}
+        <div class="card-img" ${firstImg ? `onclick='openLightbox(${imgsJson}, 0)'` : ''}>
+          ${firstImg
+            ? `<img src="${firstImg}">${imgs.length > 1 ? `<div class="img-count">+${imgs.length - 1}</div>` : ''}`
+            : `<div class="card-img-empty">Aucune photo</div>`}
+        </div>
+        <div class="card-body">
+          <div class="card-title">${escapeHtml(it.numero)}</div>
+          <div class="card-row"><strong>Chantier :</strong> ${escapeHtml(it.chantier)}</div>
+          <div class="card-row"><strong>Conducteur :</strong> ${escapeHtml(it.conducteur)}</div>
+          <div class="card-row"><strong>Créé le :</strong> ${dateFr}</div>
+          <div style="margin-top: 4px;">
+            <span class="badge ${it.location === 'chantier' ? 'badge-chantier' : 'badge-depot'}">
+              ${it.location === 'chantier' ? '🏗 Sur chantier' : '🏭 Au dépôt'}
+            </span>
+            ${dep ? `<span style="font-size: 0.78rem; color: ${stale ? '#d14a1a' : 'var(--text-soft)'}; margin-left: 6px; font-weight: ${stale ? '600' : '400'};">depuis ${formatDuration(dep.days)}</span>` : ''}
+          </div>
+          ${it.notes ? `<div style="font-size: 0.85rem; color: var(--text-soft); margin-top: 6px; white-space: pre-wrap;">${escapeHtml(it.notes)}</div>` : ''}
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-secondary btn-small" onclick="openMove('${it.id}')" title="Déplacer">↔</button>
+          <button class="btn btn-secondary btn-small" onclick="openHist('${it.id}')" title="Historique">📋</button>
+          <button class="btn btn-secondary btn-small" onclick="openForm('${it.id}')" title="Modifier">✎</button>
+          ${isAdmin ? `<button class="btn btn-danger btn-small" onclick="removeIT('${it.id}')" title="Supprimer">🗑</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Modal outside-click + Escape
+['formModal','histModal','moveModal','auditModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if (e.target.id === id) e.target.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    ['formModal','histModal','moveModal','auditModal','lightbox'].forEach(id => document.getElementById(id).classList.remove('open'));
+  }
+  if (document.getElementById('lightbox').classList.contains('open')) {
+    if (e.key === 'ArrowLeft') lightboxNav(-1);
+    if (e.key === 'ArrowRight') lightboxNav(1);
+  }
+});
+
+// Auto-refresh every 60s
+setInterval(() => { if (currentUser) loadAll(); }, 60000);
+</script>
+</body>
+</html>
